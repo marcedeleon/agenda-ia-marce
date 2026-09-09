@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DATABASE_URL: postgresql://agenda:agenda@localhost:5432/agenda_ia_test?schema=public
+
+jobs:
+  test:
+    name: Lint, typecheck y tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agenda
+          POSTGRES_PASSWORD: agenda
+          POSTGRES_DB: agenda_ia_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agenda -d agenda_ia_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npx prisma generate
+
+      - name: Aplicar migraciones
+        run: npx prisma migrate deploy
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests (con variables de entorno simuladas)
+        run: npm test
+        env:
+          META_WA_TOKEN: ci-token
+          WA_PHONE_NUMBER_ID: ci-phone-id
+          WA_WEBHOOK_VERIFY_TOKEN: ci-verify
+          GEMINI_API_KEY: ci-gemini
+          AGENDA_OWNERS_WHATSAPP: 5491100000000,5491100000001
+          TZ: America/Argentina/Buenos_Aires
+
+      - name: Build
+        run: npm run build

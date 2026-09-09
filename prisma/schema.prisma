@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------------------------
+// Users / Agenda compartida
+// ------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  waPhone      String   @unique @map("wa_phone")
+  name         String
+  role         Role     @default(OWNER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  agendaMembers AgendaMember[]
+  tasks         Task[]
+  messages      MessageLog[]
+
+  @@map("users")
+}
+
+model Agenda {
+  id        String       @id @default(cuid())
+  name      String
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  members   AgendaMember[]
+  tasks     Task[]
+
+  @@map("agendas")
+}
+
+model AgendaMember {
+  id        String   @id @default(cuid())
+  agendaId  String   @map("agenda_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  agenda    Agenda    @relation(fields: [agendaId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([agendaId, userId])
+  @@map("agenda_members")
+}
+
+// ------------------------------------------------------------------
+// Tareas
+// ------------------------------------------------------------------
+
+model Task {
+  id           String       @id @default(cuid())
+  agendaId     String       @map("agenda_id")
+  createdById  String       @map("created_by_id")
+  title        String
+  description  String?
+  dueDate      DateTime?    @map("due_date")
+  dueTime      String?      @map("due_time")
+  status       TaskStatus   @default(PENDING)
+  source       TaskSource   @default(TEXT)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  completedAt  DateTime?    @map("completed_at")
+
+  agenda       Agenda       @relation(fields: [agendaId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation(fields: [createdById], references: [id])
+  recurrence   TaskRecurrence?
+  completions  TaskCompletion[]
+
+  @@index([agendaId, dueDate])
+  @@map("tasks")
+}
+
+// Recurrencia de una tarea (ej: "todos los lunes").
+model TaskRecurrence {
+  id         String          @id @default(cuid())
+  taskId     String          @unique @map("task_id")
+  freq       RecurrenceFreq
+  interval   Int             @default(1)
+  weekday    Int?            @map("weekday") // 0=Lun ... 6=Dom (simple para semanal)
+  dayOfMonth Int?            @map("day_of_month")
+  endsOn     DateTime?       @map("ends_on")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  task       Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_recurrences")
+}
+
+// Registro de una tarea que se cumplió (motor de recurrentes).
+model TaskCompletion {
+  id        String   @id @default(cuid())
+  taskId    String   @map("task_id")
+  dueDate   DateTime @map("due_date")
+  doneAt    DateTime @default(now()) @map("done_at")
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dueDate])
+  @@map("task_completions")
+}
+
+// ------------------------------------------------------------------
+// Auditoría de mensajes
+// ------------------------------------------------------------------
+
+model MessageLog {
+  id        String       @id @default(cuid())
+  waPhone   String       @map("wa_phone")
+  waMessageId String     @unique @map("wa_message_id")
+  direction MessageDirection
+  mimeType  String?      @map("mime_type")
+  text      String?
+  intent    String?
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  user      User?        @relation(fields: [waPhone], references: [waPhone])
+
+  @@index([waPhone, createdAt])
+  @@map("message_logs")
+}
+
+// ------------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------------
+
+enum Role {
+  OWNER
+  MEMBER
+}
+
+enum TaskStatus {
+  PENDING
+  DONE
+  CANCELLED
+}
+
+enum TaskSource {
+  TEXT
+  IMAGE
+  AUDIO
+  MANUAL
+}
+
+enum RecurrenceFreq {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
