@@ -5,6 +5,7 @@ import { buildApp } from '../src/app.js';
 import { prisma } from '../src/lib/prisma.js';
 import { extractMessages } from '../src/services/whatsapp/parse.js';
 import type { WhatsAppWebhookPayload } from '../src/services/whatsapp/types.js';
+import type { ClassifiedMessage } from '../src/services/gemini/classifier.js';
 
 const ALLOWED_PHONE = process.env.AGENDA_OWNERS_WHATSAPP?.split(',')[0] ?? '5491100000000';
 let fakeSendCounter = 0;
@@ -12,6 +13,14 @@ let fakeSendCounter = 0;
 class FakeWhatsAppClient {
   sendText = vi.fn(async (_: { phoneNumberId: string; to: string; text: string }) => ({
     waMessageId: `wamid.fake.${++fakeSendCounter}`,
+  }));
+}
+
+class FakeClassifier {
+  classify = vi.fn(async (): Promise<ClassifiedMessage> => ({
+    intent: 'otros',
+    task: null,
+    queryReference: null,
   }));
 }
 
@@ -38,10 +47,16 @@ const textPayload = (from: string, body: string, id: string): WhatsAppWebhookPay
 describe('Webhook de WhatsApp', () => {
   let app: FastifyInstance;
   let client: FakeWhatsAppClient;
+  let classifier: FakeClassifier;
 
   beforeAll(async () => {
     client = new FakeWhatsAppClient();
-    app = buildApp({ loggerEnabled: false, whatsappClient: client });
+    classifier = new FakeClassifier();
+    app = buildApp({
+      loggerEnabled: false,
+      whatsappClient: client,
+      geminiClassifier: classifier.classify,
+    });
     await app.ready();
   });
 
@@ -52,6 +67,12 @@ describe('Webhook de WhatsApp', () => {
   beforeEach(() => {
     fakeSendCounter = 0;
     client.sendText.mockClear();
+    classifier.classify.mockReset();
+    classifier.classify.mockResolvedValue({
+      intent: 'otros',
+      task: null,
+      queryReference: null,
+    });
   });
 
   afterEach(async () => {
@@ -128,7 +149,11 @@ describe('Webhook de WhatsApp', () => {
 
     const entry = client.sendText.mock.calls[0]?.[0];
     expect(entry?.to).toBe(ALLOWED_PHONE);
-    expect(entry?.text).toContain('Recibido');
+    expect(classifier.classify).toHaveBeenCalledWith({
+      text: 'pagar la expensa el viernes',
+      todayISO: expect.any(String),
+    });
+    expect(entry?.text).toContain('Soy la agenda del grupo');
 
     await vi.waitFor(async () => {
       const inbound = await prisma.messageLog.findUnique({ where: { waMessageId: msgId } });

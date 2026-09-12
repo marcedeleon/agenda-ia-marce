@@ -19,6 +19,7 @@ const EnvSchema = z.object({
   WA_APP_SECRET: z.string().optional(),
 
   GEMINI_API_KEY: z.string().min(1),
+  GEMINI_MODEL: z.string().min(1).default('gemini-2.5-flash'),
 
   AGENDA_OWNERS_WHATSAPP: z
     .string()

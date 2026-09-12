@@ -67,8 +67,10 @@ src/
   webhooks/whatsapp.ts rutas GET/POST /webhook/whatsapp (Meta) + verificación de firma
   services/whatsapp/   client (Cloud API), handler (whitelist + logging + reply),
                        parse (extracción de mensajes), types
-  services/            gemini, agenda, scheduler   (próximas fases)
-tests/                 *.test.ts (corren contra Postgres local/CI)
+  services/gemini/     classifier (Google GenAI SDK), types (zod del JSON estructurado)
+  services/agenda/     repository (usuarios/agenda/tareas, consultas), format (respuestas)
+  lib/date.ts          helpers de fecha en zona America/Argentina/Buenos_Aires
+tests/                 *.test.ts (corren contra Postgres local/CI, serializados en vitest)
 prisma/                schema.prisma + migrations/
 docs/                  ONBOARDING_WHATSAPP.md
 ```
@@ -98,9 +100,21 @@ docs/                  ONBOARDING_WHATSAPP.md
 8. Mensajes del bot en español rioplatense; código y comentarios técnicos en inglés
    (excepciones: textos visibles al usuario).
 
+## Flujo del bot (Fase 3: Gemini integrado)
+
+- Texto → `classifier` (Gemini, JSON estructurado con schema) → intención:
+  - `crear_tarea`: `ensureAgendaFor` (upsert usuario + agenda compartida única) → `Task` (+recurrencia)
+    → confirmación en español.
+  - `consultar_agenda`: rango hoy/mañana/semana/fecha/pendientes → listado.
+  - `otros`: respuesta conversacional; imágenes/audio todavía placeholder.
+- Las fechas relativas las resuelve Gemini contra `todayISO()` (zona `America/Argentina/Buenos_Aires`).
+- En tests se inyecta `geminiClassifier` fake vía `buildApp({ geminiClassifier })`; el real se arma
+  con `createGeminiClassifier(env.GEMINI_API_KEY, env.GEMINI_MODEL)` (default `gemini-2.5-flash`).
+
 ## Estado actual
 
 Fase 1: esqueleto Fastify + Prisma 7 + Postgres + tests + CI. ✅
-Fase 2: webhook de WhatsApp (verify + receive + whitelist + MessageLog + reply placeholder). ✅
-Aún **no** implementados: integración Gemini (parseo de mensajes/imágenes→tareas), scheduler de
-recordatorios/resumen diario, tareas recurrentes, seed de agenda/usuarios.
+Fase 2: webhook de WhatsApp (verify + receive + whitelist + MessageLog + reply). ✅
+Fase 3: Gemini clasifica intención y arma tareas/consultas (usuario+agenda se crean solos). ✅
+Aún **no** implementados: leer imágenes/audio, marcar tareas hechas, scheduler de
+recordatorios/resumen diario, tareas recurrentes generadas (el motor), seed real de agenda/usuarios.

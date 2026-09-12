@@ -3,11 +3,14 @@ import { loggerConfig } from './lib/logger.js';
 import { healthRoutes } from './routes/health.js';
 import { whatsappWebhookRoutes } from './webhooks/whatsapp.js';
 import type { WhatsAppClient } from './services/whatsapp/client.js';
+import type { Classifier } from './services/gemini/classifier.js';
 
 export interface BuildAppOptions {
   loggerEnabled?: boolean;
   /** Cliente de WhatsApp inyectable para tests. */
   whatsappClient?: Pick<WhatsAppClient, 'sendText'>;
+  /** Clasificador de mensajes inyectable para tests. */
+  geminiClassifier?: Classifier;
 }
 
 export interface RawBodyRequest {
@@ -36,7 +39,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
 
   app.register(healthRoutes);
-  app.register(whatsappWebhookRoutes, { client: options.whatsappClient });
+  app.register(whatsappWebhookRoutes, {
+    client: options.whatsappClient,
+    classifier: options.geminiClassifier,
+  });
 
   app.setErrorHandler((err, request, reply) => {
     request.log.error({ err }, 'Error no controlado');

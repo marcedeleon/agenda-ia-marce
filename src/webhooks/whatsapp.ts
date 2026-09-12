@@ -7,9 +7,11 @@ import { WhatsAppClient } from '../services/whatsapp/client.js';
 import type { WhatsAppWebhookPayload } from '../services/whatsapp/types.js';
 import { extractMessages } from '../services/whatsapp/parse.js';
 import { processInboundMessage } from '../services/whatsapp/handler.js';
+import { createGeminiClassifier, type Classifier } from '../services/gemini/classifier.js';
 
 export interface WhatsappWebhookOptions {
   client?: Pick<WhatsAppClient, 'sendText'>;
+  classifier?: Classifier;
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -71,12 +73,15 @@ export async function whatsappWebhookRoutes(
 
     const client =
       options.client ?? new WhatsAppClient(env.META_WA_TOKEN, env.WA_GRAPH_API_VERSION);
+    const classifier =
+      options.classifier ?? createGeminiClassifier(env.GEMINI_API_KEY, env.GEMINI_MODEL);
 
     for (const message of messages) {
       void processInboundMessage(message, {
         client,
         phoneNumberId: env.WA_PHONE_NUMBER_ID,
         allowedNumbers: env.AGENDA_OWNERS_WHATSAPP,
+        classifier,
       }).catch((err) => {
         logger.error(
           { err, waMessageId: message.waMessageId },

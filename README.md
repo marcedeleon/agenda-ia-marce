@@ -81,9 +81,10 @@ template. Seguí la guía en **[docs/ONBOARDING_WHATSAPP.md](docs/ONBOARDING_WHA
 
 ## Estado del proyecto
 
-**Fases 1 y 2 (implementadas):** esqueleto del servidor con Fastify, Prisma 7 + PostgreSQL, tests
-y CI; webhook de WhatsApp funcionando (verificación, recepción de mensajes, whitelist, log y
-respuesta automática). La integración con Gemini y el resumen diario vienen en las fases siguientes.
+**Fases 1 a 3 (implementadas):** esqueleto del servidor con Fastify, Prisma 7 + PostgreSQL, webhook de
+WhatsApp (verificación, recepción, whitelist y log) y **Gemini** clasificando cada mensaje en
+tareas (guardadas en la agenda) o consultas (respondidas al instante). Falta leer imágenes y
+audio, el resumen diario y marcar tareas como hechas.
 
 ## Convenciones
 
