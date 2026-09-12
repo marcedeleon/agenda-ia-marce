@@ -21,7 +21,6 @@ model User {
 
   agendaMembers AgendaMember[]
   tasks         Task[]
-  messages      MessageLog[]
 
   @@map("users")
 }
@@ -112,16 +111,15 @@ model TaskCompletion {
 // ------------------------------------------------------------------
 
 model MessageLog {
-  id        String       @id @default(cuid())
-  waPhone   String       @map("wa_phone")
-  waMessageId String     @unique @map("wa_message_id")
-  direction MessageDirection
-  mimeType  String?      @map("mime_type")
-  text      String?
-  intent    String?
-  createdAt DateTime     @default(now()) @map("created_at")
-
-  user      User?        @relation(fields: [waPhone], references: [waPhone])
+  id          String   @id @default(cuid())
+  waPhone     String   @map("wa_phone")
+  waMessageId String   @unique @map("wa_message_id")
+  direction   MessageDirection
+  type        String   @default("text")
+  mimeType    String?  @map("mime_type")
+  text        String?
+  intent      String?
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([waPhone, createdAt])
   @@map("message_logs")

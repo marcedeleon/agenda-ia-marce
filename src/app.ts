@@ -1,9 +1,17 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { loggerConfig } from './lib/logger.js';
 import { healthRoutes } from './routes/health.js';
+import { whatsappWebhookRoutes } from './webhooks/whatsapp.js';
+import type { WhatsAppClient } from './services/whatsapp/client.js';
 
 export interface BuildAppOptions {
   loggerEnabled?: boolean;
+  /** Cliente de WhatsApp inyectable para tests. */
+  whatsappClient?: Pick<WhatsAppClient, 'sendText'>;
+}
+
+export interface RawBodyRequest {
+  rawBody: string;
 }
 
 /**
@@ -16,7 +24,19 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     bodyLimit: 1024 * 1024 * 5,
   });
 
+  // Parser JSON que retiene el body sin parsear para verificar la firma de Meta.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (request, body, done) => {
+    try {
+      (request as FastifyRequest & RawBodyRequest).rawBody =
+        typeof body === 'string' ? body : String(body);
+      done(null, JSON.parse(String(body)));
+    } catch (err) {
+      done(err as Error);
+    }
+  });
+
   app.register(healthRoutes);
+  app.register(whatsappWebhookRoutes, { client: options.whatsappClient });
 
   app.setErrorHandler((err, request, reply) => {
     request.log.error({ err }, 'Error no controlado');

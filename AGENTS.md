@@ -64,12 +64,23 @@ src/
   app.ts               buildApp() → instancia Fastify (testeable con inject)
   index.ts             arranque (env + listen + graceful shutdown)
   routes/              health, status
-  services/            whatsapp, gemini, agenda, scheduler   (próximas fases)
-  webhooks/            controller webhook de Meta            (próximas fases)
+  webhooks/whatsapp.ts rutas GET/POST /webhook/whatsapp (Meta) + verificación de firma
+  services/whatsapp/   client (Cloud API), handler (whitelist + logging + reply),
+                       parse (extracción de mensajes), types
+  services/            gemini, agenda, scheduler   (próximas fases)
 tests/                 *.test.ts (corren contra Postgres local/CI)
 prisma/                schema.prisma + migrations/
 docs/                  ONBOARDING_WHATSAPP.md
 ```
+
+## Webhook de WhatsApp (implementado en Fase 2)
+
+- `GET /webhook/whatsapp` — verificación de Meta (`hub.challenge` + `WA_WEBHOOK_VERIFY_TOKEN`).
+- `POST /webhook/whatsapp` — responde 200 al toque y procesa en background; si `WA_APP_SECRET`
+  está seteado, valida `X-Hub-Signature-256`.
+- El flujo: `parse` → whitelist (`AGENDA_OWNERS_WHATSAPP`) → log INBOUND en `MessageLog` →
+  reply placeholder → log OUTBOUND. Con `buildApp({ whatsappClient })` se inyecta un cliente
+  simulado en tests.
 
 ## Convenciones y reglas
 
@@ -89,6 +100,7 @@ docs/                  ONBOARDING_WHATSAPP.md
 
 ## Estado actual
 
-Fase 1: esqueleto Fastify + Prisma 7 + Postgres + tests + CI. Aún **no** implementados:
-webhook de Meta, integración Gemini, scheduler de recordatorios, registro de mensajes, seed de
-agenda/usuarios.
+Fase 1: esqueleto Fastify + Prisma 7 + Postgres + tests + CI. ✅
+Fase 2: webhook de WhatsApp (verify + receive + whitelist + MessageLog + reply placeholder). ✅
+Aún **no** implementados: integración Gemini (parseo de mensajes/imágenes→tareas), scheduler de
+recordatorios/resumen diario, tareas recurrentes, seed de agenda/usuarios.

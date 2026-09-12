@@ -10,6 +10,13 @@ const EnvSchema = z.object({
   META_WA_TOKEN: z.string().min(1),
   WA_PHONE_NUMBER_ID: z.string().min(1),
   WA_WEBHOOK_VERIFY_TOKEN: z.string().min(1),
+  // Versión de la Graph API (Meta la descontinúa vieja tras 2 años aprox.)
+  WA_GRAPH_API_VERSION: z
+    .string()
+    .regex(/^v\d+(\.\d+)?$/, 'Formato vNN.N')
+    .default('v25.0'),
+  // App secret de Meta: si está presente, el webhook valida la firma X-Hub-Signature-256.
+  WA_APP_SECRET: z.string().optional(),
 
   GEMINI_API_KEY: z.string().min(1),
 
